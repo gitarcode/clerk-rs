@@ -110,9 +110,13 @@ pub struct User {
 	#[serde(rename = "backup_code_enabled", skip_serializing_if = "Option::is_none")]
 	pub backup_code_enabled: Option<bool>,
 	#[serde(rename = "external_accounts", skip_serializing_if = "Option::is_none")]
-	pub external_accounts: Option<Vec<serde_json::Value>>,
+	pub external_accounts: Option<Vec<crate::models::ExternalAccount>>,
+	#[serde(rename = "passkeys", skip_serializing_if = "Option::is_none")]
+	pub passkeys: Option<Vec<serde_json::Value>>,
 	#[serde(rename = "saml_accounts", skip_serializing_if = "Option::is_none")]
 	pub saml_accounts: Option<Vec<crate::models::SamlAccount>>,
+	#[serde(rename = "enterprise_accounts", skip_serializing_if = "Option::is_none")]
+	pub enterprise_accounts: Option<Vec<crate::models::EnterpriseAccount>>,
 	/// Unix timestamp of last sign-in.
 	#[serde(
 		rename = "last_sign_in_at",
@@ -163,6 +167,30 @@ pub struct User {
 		skip_serializing_if = "Option::is_none"
 	)]
 	pub last_active_at: Option<Option<i64>>,
+	/// Unix timestamp when MFA was enabled.
+	#[serde(
+		rename = "mfa_enabled_at",
+		default,
+		with = "::serde_with::rust::double_option",
+		skip_serializing_if = "Option::is_none"
+	)]
+	pub mfa_enabled_at: Option<Option<i64>>,
+	/// Unix timestamp when MFA was disabled.
+	#[serde(
+		rename = "mfa_disabled_at",
+		default,
+		with = "::serde_with::rust::double_option",
+		skip_serializing_if = "Option::is_none"
+	)]
+	pub mfa_disabled_at: Option<Option<i64>>,
+	/// Unix timestamp when legal terms were accepted.
+	#[serde(
+		rename = "legal_accepted_at",
+		default,
+		with = "::serde_with::rust::double_option",
+		skip_serializing_if = "Option::is_none"
+	)]
+	pub legal_accepted_at: Option<Option<i64>>,
 }
 
 impl User {
@@ -193,7 +221,9 @@ impl User {
 			totp_enabled: None,
 			backup_code_enabled: None,
 			external_accounts: None,
+			passkeys: None,
 			saml_accounts: None,
+			enterprise_accounts: None,
 			last_sign_in_at: None,
 			banned: None,
 			locked: None,
@@ -204,6 +234,9 @@ impl User {
 			delete_self_enabled: None,
 			create_organization_enabled: None,
 			last_active_at: None,
+			mfa_enabled_at: None,
+			mfa_disabled_at: None,
+			legal_accepted_at: None,
 		}
 	}
 }
