@@ -60,9 +60,13 @@ pub struct User {
 	#[serde(rename = "backup_code_enabled", skip_serializing_if = "Option::is_none")]
 	pub backup_code_enabled: Option<bool>,
 	#[serde(rename = "external_accounts", skip_serializing_if = "Option::is_none")]
-	pub external_accounts: Option<Vec<serde_json::Value>>,
+	pub external_accounts: Option<Vec<crate::models::ExternalAccount>>,
+	#[serde(rename = "passkeys", skip_serializing_if = "Option::is_none")]
+	pub passkeys: Option<Vec<serde_json::Value>>,
 	#[serde(rename = "saml_accounts", skip_serializing_if = "Option::is_none")]
 	pub saml_accounts: Option<Vec<crate::models::SamlAccount>>,
+	#[serde(rename = "enterprise_accounts", skip_serializing_if = "Option::is_none")]
+	pub enterprise_accounts: Option<Vec<crate::models::EnterpriseAccount>>,
 	/// Unix timestamp of last sign-in.
 	#[serde(rename = "last_sign_in_at", skip_serializing_if = "Option::is_none")]
 	pub last_sign_in_at: Option<i64>,
@@ -93,6 +97,15 @@ pub struct User {
 	/// Unix timestamp of the latest session activity, with day precision.
 	#[serde(rename = "last_active_at", skip_serializing_if = "Option::is_none")]
 	pub last_active_at: Option<i64>,
+	/// Unix timestamp when MFA was enabled.
+	#[serde(rename = "mfa_enabled_at", skip_serializing_if = "Option::is_none")]
+	pub mfa_enabled_at: Option<i64>,
+	/// Unix timestamp when MFA was disabled.
+	#[serde(rename = "mfa_disabled_at", skip_serializing_if = "Option::is_none")]
+	pub mfa_disabled_at: Option<i64>,
+	/// Unix timestamp when legal terms were accepted.
+	#[serde(rename = "legal_accepted_at", skip_serializing_if = "Option::is_none")]
+	pub legal_accepted_at: Option<i64>,
 }
 
 impl User {
@@ -123,7 +136,9 @@ impl User {
 			totp_enabled: None,
 			backup_code_enabled: None,
 			external_accounts: None,
+			passkeys: None,
 			saml_accounts: None,
+			enterprise_accounts: None,
 			last_sign_in_at: None,
 			banned: None,
 			locked: None,
@@ -134,6 +149,9 @@ impl User {
 			delete_self_enabled: None,
 			create_organization_enabled: None,
 			last_active_at: None,
+			mfa_enabled_at: None,
+			mfa_disabled_at: None,
+			legal_accepted_at: None,
 		}
 	}
 }
@@ -148,5 +166,121 @@ pub enum Object {
 impl Default for Object {
 	fn default() -> Object {
 		Self::User
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_deserialize_minimal_user() {
+		let json = r#"
+		{
+			"id": "user_123",
+			"object": "user",
+			"created_at": 1640995200
+		}
+		"#;
+
+		let user: User = serde_json::from_str(json).expect("Failed to deserialize minimal user");
+		assert_eq!(user.id, Some("user_123".to_string()));
+		assert_eq!(user.object, Some(Object::User));
+		assert_eq!(user.created_at, Some(1640995200));
+	}
+
+	#[test]
+	fn test_deserialize_user_with_email() {
+		let json = r#"
+		{
+			"id": "user_123",
+			"object": "user",
+			"first_name": "John",
+			"last_name": "Doe",
+			"email_addresses": [
+				{
+					"id": "idn_123",
+					"object": "email_address",
+					"email_address": "john@example.com",
+					"reserved": false,
+					"linked_to": [],
+					"verification": {
+						"status": "verified",
+						"strategy": "email_code",
+						"attempts": 1,
+						"expire_at": 1640995200
+					}
+				}
+			],
+			"created_at": 1640995200
+		}
+		"#;
+
+		let user: User = serde_json::from_str(json).expect("Failed to deserialize user with email");
+		assert_eq!(user.id, Some("user_123".to_string()));
+		assert_eq!(user.first_name, Some("John".to_string()));
+		assert_eq!(user.last_name, Some("Doe".to_string()));
+		assert!(user.email_addresses.is_some());
+		if let Some(emails) = &user.email_addresses {
+			assert_eq!(emails.len(), 1);
+			assert_eq!(emails[0].email_address, "john@example.com".to_string());
+		}
+	}
+
+	#[test]
+	fn test_deserialize_user_with_saml_account() {
+		let json = r#"
+		{
+			"id": "user_123",
+			"object": "user",
+			"saml_accounts": [
+				{
+					"id": "samlacc_123",
+					"object": "saml_account",
+					"provider": "saml_okta",
+					"active": true,
+					"email_address": "john@company.com",
+					"verification": {
+						"status": "verified",
+						"strategy": "saml",
+						"external_verification_redirect_url": null,
+						"expire_at": 1640995200
+					}
+				}
+			],
+			"created_at": 1640995200
+		}
+		"#;
+
+		let user: User = serde_json::from_str(json).expect("Failed to deserialize user with SAML account");
+		assert_eq!(user.id, Some("user_123".to_string()));
+		assert!(user.saml_accounts.is_some());
+		if let Some(saml_accounts) = &user.saml_accounts {
+			assert_eq!(saml_accounts.len(), 1);
+		}
+	}
+
+	#[test]
+	fn test_deserialize_user_handles_missing_optional_fields() {
+		let json = r#"
+		{
+			"id": "user_123",
+			"created_at": 1640995200
+		}
+		"#;
+
+		let user: User = serde_json::from_str(json).expect("Failed to deserialize user with minimal fields");
+		assert_eq!(user.id, Some("user_123".to_string()));
+		assert!(user.first_name.is_none());
+		assert!(user.last_name.is_none());
+		assert!(user.email_addresses.is_none());
+	}
+
+	#[test]
+	fn test_user_new() {
+		let user = User::new();
+		assert!(user.id.is_none());
+		assert!(user.first_name.is_none());
+		assert!(user.email_addresses.is_none());
 	}
 }
