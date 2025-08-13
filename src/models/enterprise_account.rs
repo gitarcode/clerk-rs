@@ -10,8 +10,21 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct EnterpriseAccount {
+    /// Object type identifier  
+    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    pub object: Option<String>,
+    /// Whether the account is active
+    #[serde(rename = "active", skip_serializing_if = "Option::is_none")]
+    pub active: Option<bool>,
+    /// Enterprise protocol (e.g. "saml")
+    #[serde(rename = "protocol", skip_serializing_if = "Option::is_none")]
+    pub protocol: Option<String>,
+    /// Enterprise provider (e.g. "saml_okta")
+    #[serde(rename = "provider", skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
     /// The email address associated with this enterprise account
     #[serde(rename = "email_address", skip_serializing_if = "Option::is_none")]
     pub email_address: Option<String>,
@@ -21,14 +34,26 @@ pub struct EnterpriseAccount {
     /// The last name from the enterprise account
     #[serde(rename = "last_name", skip_serializing_if = "Option::is_none")]
     pub last_name: Option<String>,
+    /// Enterprise connection information
+    #[serde(rename = "enterprise_connection", skip_serializing_if = "Option::is_none")]
+    pub enterprise_connection: Option<serde_json::Value>,
+    /// Verification information (required for enterprise accounts per official types)
+    #[serde(rename = "verification", skip_serializing_if = "Option::is_none")]
+    pub verification: Option<serde_json::Value>,
 }
 
 impl EnterpriseAccount {
     pub fn new() -> EnterpriseAccount {
         EnterpriseAccount {
+            object: None,
+            active: None,
+            protocol: None,
+            provider: None,
             email_address: None,
             first_name: None,
             last_name: None,
+            enterprise_connection: None,
+            verification: None,
         }
     }
 }

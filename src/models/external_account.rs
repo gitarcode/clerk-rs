@@ -10,25 +10,46 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+#[serde(default)]
 pub struct ExternalAccount {
+    /// Object type identifier
+    #[serde(rename = "object", skip_serializing_if = "Option::is_none")]
+    pub object: Option<String>,
+    /// OAuth provider (e.g. "oauth_google", "oauth_github")  
+    #[serde(rename = "provider", skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    /// Identification ID
+    #[serde(rename = "identification_id", skip_serializing_if = "Option::is_none")]
+    pub identification_id: Option<String>,
+    /// Provider user ID
+    #[serde(rename = "provider_user_id", skip_serializing_if = "Option::is_none")]
+    pub provider_user_id: Option<String>,
     /// The email address associated with this external account
     #[serde(rename = "email_address", skip_serializing_if = "Option::is_none")]
     pub email_address: Option<String>,
-    /// The first name from the external account
+    /// The first name from the external account  
     #[serde(rename = "first_name", skip_serializing_if = "Option::is_none")]
     pub first_name: Option<String>,
     /// The last name from the external account
     #[serde(rename = "last_name", skip_serializing_if = "Option::is_none")]
     pub last_name: Option<String>,
+    /// Verification information (optional)
+    #[serde(rename = "verification", skip_serializing_if = "Option::is_none")]
+    pub verification: Option<serde_json::Value>,
 }
 
 impl ExternalAccount {
     pub fn new() -> ExternalAccount {
         ExternalAccount {
+            object: None,
+            provider: None,
+            identification_id: None,
+            provider_user_id: None,
             email_address: None,
             first_name: None,
             last_name: None,
+            verification: None,
         }
     }
 }
