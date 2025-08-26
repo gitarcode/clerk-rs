@@ -76,6 +76,23 @@ pub struct ClerkJwt {
 	pub other: Map<String, Value>,
 }
 
+impl ClerkJwt {
+	pub fn org(&self) -> Option<ActiveOrganization> {
+		if let Some(org) = &self.org_v2 {
+			Some(ActiveOrganization {
+				id: org.id.clone(),
+				slug: org.slug.clone(),
+				role: org.role.clone(),
+				permissions: org.permissions.split(',').map(|s| s.to_string()).collect(),
+			})
+		} else if let Some(org) = &self.org {
+			Some(org.clone())
+		} else {
+			None
+		}
+	}
+}
+
 pub trait ClerkRequest {
 	fn get_header(&self, key: &str) -> Option<String>;
 	fn get_cookie(&self, key: &str) -> Option<String>;
