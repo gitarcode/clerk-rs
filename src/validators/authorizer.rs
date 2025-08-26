@@ -30,6 +30,21 @@ impl ActiveOrganization {
 	}
 }
 
+/// Organization structure for JWT v2 tokens
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct OrganizationV2 {
+	#[serde(rename = "id")]
+	pub id: String,
+	#[serde(rename = "slg")]
+	pub slug: String,
+	#[serde(rename = "rol")]
+	pub role: String,
+	#[serde(rename = "per")]
+	pub permissions: String,
+	#[serde(rename = "fpm")]
+	pub feature_permission_mappings: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Actor {
 	pub iss: Option<String>,
@@ -47,8 +62,14 @@ pub struct ClerkJwt {
 	pub sid: Option<String>,
 	pub sub: String,
 	pub act: Option<Actor>,
+	#[serde(rename = "v")]
+	pub version: Option<i32>,
+	#[serde(rename = "fea")]
+	pub features: Option<String>,
 	#[serde(flatten)]
 	pub org: Option<ActiveOrganization>,
+	#[serde(rename = "o")]
+	pub org_v2: Option<OrganizationV2>,
 	/// Catch-all for any other attributes that may be present in the JWT. This
 	/// is useful for custom templates that may have additional fields
 	#[serde(flatten)]
@@ -218,6 +239,26 @@ mod tests {
 		custom_map: CustomFields,
 	}
 
+	#[derive(Debug, serde::Serialize)]
+	struct ClaimsV2 {
+		sub: String,
+		iat: usize,
+		nbf: usize,
+		exp: usize,
+		azp: String,
+		iss: String,
+		sid: String,
+		act: Actor,
+		#[serde(rename = "v")]
+		version: i32,
+		#[serde(rename = "o")]
+		organization: OrganizationV2,
+		#[serde(rename = "fea")]
+		features: String,
+		custom_key: String,
+		custom_map: CustomFields,
+	}
+
 	struct Helper {
 		private_key: RsaPrivateKey,
 	}
@@ -278,6 +319,58 @@ mod tests {
 			token
 		}
 
+		pub fn generate_jwt_token_v2(&self, kid: Option<&str>, current_time: Option<usize>, expired: bool) -> String {
+			let pem = self.private_key.to_pkcs1_pem(rsa::pkcs8::LineEnding::LF).unwrap();
+			let encoding_key = EncodingKey::from_rsa_pem(pem.as_bytes()).expect("Failed to load encoding key");
+
+			let mut current_time = current_time.unwrap_or(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize);
+
+			if expired {
+				// issue the token some time in the past so that it's expired now
+				current_time -= 5000;
+			}
+
+			// expire after 1000 secs
+			let expiration = current_time + 1000;
+
+			let claims = ClaimsV2 {
+				azp: "client_id".to_string(),
+				sub: "user".to_string(),
+				iat: current_time,
+				exp: expiration,
+				iss: "issuer".to_string(),
+				nbf: current_time,
+				sid: "session_id".to_string(),
+				version: 2,
+				organization: OrganizationV2 {
+					id: "org_v2_id".to_string(),
+					slug: "org_v2_slug".to_string(),
+					role: "admin".to_string(),
+					permissions: "read,write".to_string(),
+					feature_permission_mappings: "feature:mapping".to_string(),
+				},
+				features: "o:repositories,o:projects".to_string(),
+				act: Actor {
+					iss: Some("actor_iss".to_string()),
+					sid: Some("actor_sid".to_string()),
+					sub: "actor_sub".to_string(),
+				},
+				custom_key: "custom_value".to_string(),
+				custom_map: CustomFields {
+					custom_attribute: "custom_attribute".to_string(),
+				},
+			};
+
+			let mut header = Header::new(Algorithm::RS256);
+			if let Some(kid_value) = kid {
+				header.kid = Some(kid_value.to_string());
+			}
+
+			let token = encode(&header, &claims, &encoding_key).expect("Failed to create jwt token v2");
+
+			token
+		}
+
 		pub fn get_modulus_and_public_exponent(&self) -> (String, String) {
 			let encoded_modulus = URL_SAFE_NO_PAD.encode(self.private_key.n().to_bytes_be().as_slice());
 			let encoded_exponent = URL_SAFE_NO_PAD.encode(self.private_key.e().to_bytes_be().as_slice());
@@ -318,12 +411,15 @@ mod tests {
 				sid: Some("actor_sid".to_string()),
 				sub: "actor_sub".to_string(),
 			}),
+			version: None,
+			features: None,
 			org: Some(ActiveOrganization {
 				id: "org_id".to_string(),
 				slug: "org_slug".to_string(),
 				role: "org_role".to_string(),
 				permissions: vec!["org_permission".to_string()],
 			}),
+			org_v2: None,
 			other: {
 				let mut map = Map::new();
 				map.insert("custom_key".to_string(), Value::String("custom_value".to_string()));
@@ -471,12 +567,15 @@ mod tests {
 				sid: Some("actor_sid".to_string()),
 				sub: "actor_sub".to_string(),
 			}),
+			version: None,
+			features: None,
 			org: Some(ActiveOrganization {
 				id: "org_id".to_string(),
 				slug: "org_slug".to_string(),
 				role: "org_role".to_string(),
 				permissions: vec!["org_permission".to_string()],
 			}),
+			org_v2: None,
 			other: {
 				let mut map = Map::new();
 				map.insert("custom_key".to_string(), Value::String("custom_value".to_string()));
@@ -589,5 +688,96 @@ mod tests {
 
 		let err = get_token_header(token).expect_err("should be invalid");
 		assert_eq!(err.kind().to_owned(), ErrorKind::InvalidToken);
+	}
+
+	// V2 Token Tests
+	#[test]
+	fn test_validate_jwt_v2_with_key_success() {
+		let helper = Helper::new();
+
+		let kid = "bc63c2e9-5d1c-4e32-9b62-178f60409abd";
+
+		let (modulus, exponent) = helper.get_modulus_and_public_exponent();
+
+		let jwks_key = JwksKey {
+			use_key: String::new(),
+			kty: String::new(),
+			kid: kid.to_string(),
+			alg: String::from("RS256"),
+			n: modulus,
+			e: exponent,
+		};
+
+		let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as usize;
+		let token = helper.generate_jwt_token_v2(Some(kid), Some(current_time), false);
+
+		let expected = ClerkJwt {
+			azp: Some("client_id".to_string()),
+			sub: "user".to_string(),
+			iat: current_time as i32,
+			exp: (current_time + 1000) as i32,
+			iss: "issuer".to_string(),
+			nbf: current_time as i32,
+			sid: Some("session_id".to_string()),
+			act: Some(Actor {
+				iss: Some("actor_iss".to_string()),
+				sid: Some("actor_sid".to_string()),
+				sub: "actor_sub".to_string(),
+			}),
+			version: Some(2),
+			features: Some("o:repositories,o:projects".to_string()),
+			org: None,
+			org_v2: Some(OrganizationV2 {
+				id: "org_v2_id".to_string(),
+				slug: "org_v2_slug".to_string(),
+				role: "admin".to_string(),
+				permissions: "read,write".to_string(),
+				feature_permission_mappings: "feature:mapping".to_string(),
+			}),
+			other: {
+				let mut map = Map::new();
+				map.insert("custom_key".to_string(), Value::String("custom_value".to_string()));
+				map.insert(
+					"custom_map".to_string(),
+					Value::Object({
+						let mut map = Map::new();
+						map.insert("custom_attribute".to_string(), Value::String("custom_attribute".to_string()));
+						map
+					}),
+				);
+				map
+			},
+		};
+
+		assert_eq!(validate_jwt_with_key(token.as_str(), &jwks_key).expect("should be valid"), expected);
+	}
+
+	#[tokio::test]
+	async fn test_validate_jwt_v2_with_jwks_provider() {
+		let helper = Helper::new();
+
+		let kid = "bc63c2e9-5d1c-4e32-9b62-178f60409abd";
+
+		let (modulus, exponent) = helper.get_modulus_and_public_exponent();
+
+		let jwks_key = JwksKey {
+			use_key: String::new(),
+			kty: String::new(),
+			kid: kid.to_string(),
+			alg: String::from("RS256"),
+			n: modulus,
+			e: exponent,
+		};
+		let jwks = Arc::new(StaticJwksProvider::from_key(jwks_key));
+
+		let token = helper.generate_jwt_token_v2(Some(kid), None, false);
+
+		let result = validate_jwt(&token, jwks).await;
+		assert!(result.is_ok(), "V2 token should be valid with JWKS provider");
+
+		let jwt = result.unwrap();
+		assert_eq!(jwt.version, Some(2), "Should be V2 token");
+		assert!(jwt.org_v2.is_some(), "Should have V2 organization");
+		assert_eq!(jwt.features, Some("o:repositories,o:projects".to_string()), "Should have V2 features");
 	}
 }
