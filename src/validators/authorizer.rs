@@ -40,9 +40,9 @@ pub struct OrganizationV2 {
 	#[serde(rename = "rol")]
 	pub role: String,
 	#[serde(rename = "per")]
-	pub permissions: String,
+	pub permissions: Option<String>,
 	#[serde(rename = "fpm")]
-	pub feature_permission_mappings: String,
+	pub feature_permission_mappings: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -346,8 +346,8 @@ mod tests {
 					id: "org_v2_id".to_string(),
 					slug: "org_v2_slug".to_string(),
 					role: "admin".to_string(),
-					permissions: "read,write".to_string(),
-					feature_permission_mappings: "feature:mapping".to_string(),
+					permissions: Some("read,write".to_string()),
+					feature_permission_mappings: Some("feature:mapping".to_string()),
 				},
 				features: "o:repositories,o:projects".to_string(),
 				act: Actor {
@@ -731,8 +731,8 @@ mod tests {
 				id: "org_v2_id".to_string(),
 				slug: "org_v2_slug".to_string(),
 				role: "admin".to_string(),
-				permissions: "read,write".to_string(),
-				feature_permission_mappings: "feature:mapping".to_string(),
+				permissions: Some("read,write".to_string()),
+				feature_permission_mappings: Some("feature:mapping".to_string()),
 			}),
 			other: {
 				let mut map = Map::new();
