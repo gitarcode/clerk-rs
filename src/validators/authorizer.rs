@@ -58,7 +58,7 @@ pub struct ClerkJwt {
 	pub exp: i32,
 	pub iat: i32,
 	pub iss: String,
-	pub nbf: i32,
+	pub nbf: Option<i32>,
 	pub sid: Option<String>,
 	pub sub: String,
 	pub act: Option<Actor>,
@@ -202,8 +202,7 @@ pub fn validate_jwt_with_key(token: &str, key: &JwksKey) -> Result<ClerkJwt, Cle
 
 /// Extract the header from a jwt token
 fn get_token_header(token: &str) -> Result<Header, jwtError> {
-	let header = decode_header(&token);
-	header
+	decode_header(token)
 }
 
 #[cfg(test)]
@@ -404,7 +403,7 @@ mod tests {
 			iat: current_time as i32,
 			exp: (current_time + 1000) as i32,
 			iss: "issuer".to_string(),
-			nbf: current_time as i32,
+			nbf: Some(current_time as i32),
 			sid: Some("session_id".to_string()),
 			act: Some(Actor {
 				iss: Some("actor_iss".to_string()),
@@ -560,7 +559,7 @@ mod tests {
 			iat: current_time as i32,
 			exp: (current_time + 1000) as i32,
 			iss: "issuer".to_string(),
-			nbf: current_time as i32,
+			nbf: Some(current_time as i32),
 			sid: Some("session_id".to_string()),
 			act: Some(Actor {
 				iss: Some("actor_iss".to_string()),
@@ -717,7 +716,7 @@ mod tests {
 			iat: current_time as i32,
 			exp: (current_time + 1000) as i32,
 			iss: "issuer".to_string(),
-			nbf: current_time as i32,
+			nbf: Some(current_time as i32),
 			sid: Some("session_id".to_string()),
 			act: Some(Actor {
 				iss: Some("actor_iss".to_string()),
