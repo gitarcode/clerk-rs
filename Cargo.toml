@@ -33,6 +33,10 @@ name = "rocket"
 path = "examples/rocket.rs"
 required-features = ["rocket"]
 
+[[example]]
+name = "jwt_debug"
+path = "examples/jwt_debug.rs"
+
 [lib]
 doctest = false
 
@@ -42,7 +46,7 @@ serde_derive = "^1.0"
 serde_json = "^1.0"
 url = "^2.2"
 regex = "1.10.6"
-jsonwebtoken = { version = "10", features = ["rust_crypto"] }
+jsonwebtoken = { git = "ssh://git@github.com/gitarcode/jsonwebtoken.git", rev = "497fdb4", default-features = false, features = ["use_pem", "rust_crypto"] }
 futures-util = "0.3.28"
 actix-rt = { version = "2.10.0", optional = true }
 actix-web = { version = "4.9.0", optional = true }
@@ -63,6 +67,7 @@ features = ["json", "multipart"]
 [dev-dependencies]
 base64 = "0.22.1"
 clerk-rs = { path = "../clerk-rs" }
+env_logger = "0.11"
 mockito = "1.4.0"
 rand = "0.8.5"
 rsa = "0.9.6"
